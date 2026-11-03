@@ -56,10 +56,28 @@ BLENDER = find_blender()
 DEFAULT_ROOT = default_root()
 
 
+def q(p):
+    """路徑轉成 Ruby 單引號字串（Windows 反斜線改正斜線）"""
+    return "'" + p.replace("\\", "/").replace("'", "\\'") + "'"
+
+
+def copy_clipboard(text):
+    """複製到剪貼簿（Mac pbcopy、Windows PowerShell Set-Clipboard）；失敗就算了"""
+    try:
+        if WIN:
+            subprocess.run(["powershell", "-NoProfile", "-Command", "Set-Clipboard -Value $input"],
+                           input=text, encoding="utf-8", check=True)
+        else:
+            subprocess.run(["pbcopy"], input=text, encoding="utf-8", check=True,
+                           env={**os.environ, "LANG": "en_US.UTF-8"})   # 沒設 LANG 時 pbcopy 會把中文當成別的編碼
+        return True
+    except Exception:
+        return False
+
+
 def make_skp(rb, skp, log):
     """另開一個 SketchUp（Mac 用 open -n，不影響使用者已開的視窗）載入 .rb、存檔、關閉。
     先存在暫存資料夾再搬過去：直接存進 Synology Drive 同步資料夾會卡住"""
-    q = lambda p: "'" + p.replace("\\", "\\\\").replace("'", "\\'") + "'"
     tmp = tempfile.mkdtemp()
     final_skp, final_log = skp, log
     skp, log = os.path.join(tmp, "model.skp"), os.path.join(tmp, "log.txt")
@@ -170,6 +188,12 @@ def main():
     print("輸出資料夾：", out)
     for f in sorted(os.listdir(out)):
         print("  ", f)
+
+    # 一行貼進 SketchUp「視窗 > Ruby 主控台」就能建出模型（沒存成 .skp 時用）
+    load = f"load {q(stem + '_SketchUp.rb')}"
+    print("\nSketchUp「視窗 > Ruby 主控台」貼上這行即可建出模型"
+          + ("（已複製到剪貼簿）" if copy_clipboard(load) else "") + "：")
+    print(load)
 
 
 if __name__ == "__main__":
